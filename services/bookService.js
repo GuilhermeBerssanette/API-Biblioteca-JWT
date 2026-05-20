@@ -1,16 +1,19 @@
 import Book from "../models/Book.js";
 import Loan from "../models/Loan.js";
-import AppError from "../utils/AppError.js";
 
 const createBook = async (data) => {
   const { titulo, autor, categoria, ano, quantidadeTotal } = data;
 
   if (!titulo || !autor || quantidadeTotal === undefined) {
-    throw new AppError("Título, autor e quantidadeTotal são obrigatórios", 400);
+    const error = new Error("Título, autor e quantidadeTotal são obrigatórios");
+    error.statusCode = 400;
+    throw error;
   }
 
   if (quantidadeTotal <= 0) {
-    throw new AppError("quantidadeTotal precisa ser maior que zero", 400);
+    const error = new Error("quantidadeTotal precisa ser maior que zero");
+    error.statusCode = 400;
+    throw error;
   }
 
   const book = await Book.create({
@@ -34,7 +37,9 @@ const getBookById = async (id) => {
   const book = await Book.findById(id);
 
   if (!book) {
-    throw new AppError("Livro não encontrado", 404);
+    const error = new Error("Livro não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   return book;
@@ -63,31 +68,47 @@ const updateBook = async (id, data) => {
   const book = await Book.findById(id);
 
   if (!book) {
-    throw new AppError("Livro não encontrado", 404);
+    const error = new Error("Livro não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (data.quantidadeTotal !== undefined) {
     if (data.quantidadeTotal <= 0) {
-      throw new AppError("quantidadeTotal precisa ser maior que zero", 400);
+      const error = new Error("quantidadeTotal precisa ser maior que zero");
+      error.statusCode = 400;
+      throw error;
     }
 
     const borrowedQuantity = book.quantidadeTotal - book.quantidadeDisponivel;
 
     if (data.quantidadeTotal < borrowedQuantity) {
-      throw new AppError(
-        "Não é possível deixar quantidadeTotal menor que a quantidade já emprestada",
-        400
+      const error = new Error(
+        "Não é possível deixar quantidadeTotal menor que a quantidade já emprestada"
       );
+      error.statusCode = 400;
+      throw error;
     }
 
     book.quantidadeTotal = data.quantidadeTotal;
     book.quantidadeDisponivel = data.quantidadeTotal - borrowedQuantity;
   }
 
-  if (data.titulo !== undefined) book.titulo = data.titulo;
-  if (data.autor !== undefined) book.autor = data.autor;
-  if (data.categoria !== undefined) book.categoria = data.categoria;
-  if (data.ano !== undefined) book.ano = data.ano;
+  if (data.titulo !== undefined) {
+    book.titulo = data.titulo;
+  }
+
+  if (data.autor !== undefined) {
+    book.autor = data.autor;
+  }
+
+  if (data.categoria !== undefined) {
+    book.categoria = data.categoria;
+  }
+
+  if (data.ano !== undefined) {
+    book.ano = data.ano;
+  }
 
   await book.save();
 
@@ -98,11 +119,15 @@ const deactivateBook = async (id) => {
   const book = await Book.findById(id);
 
   if (!book) {
-    throw new AppError("Livro não encontrado", 404);
+    const error = new Error("Livro não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (!book.ativo) {
-    throw new AppError("Livro já está desativado", 400);
+    const error = new Error("Livro já está desativado");
+    error.statusCode = 400;
+    throw error;
   }
 
   const activeLoansCount = await Loan.countDocuments({
@@ -111,10 +136,15 @@ const deactivateBook = async (id) => {
   });
 
   if (activeLoansCount > 0) {
-    throw new AppError("Não é possível desativar livro com empréstimos ativos", 400);
+    const error = new Error(
+      "Não é possível desativar livro com empréstimos ativos"
+    );
+    error.statusCode = 400;
+    throw error;
   }
 
   book.ativo = false;
+
   await book.save();
 
   return book;
@@ -124,14 +154,19 @@ const activateBook = async (id) => {
   const book = await Book.findById(id);
 
   if (!book) {
-    throw new AppError("Livro não encontrado", 404);
+    const error = new Error("Livro não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (book.ativo) {
-    throw new AppError("Livro já está ativo", 400);
+    const error = new Error("Livro já está ativo");
+    error.statusCode = 400;
+    throw error;
   }
 
   book.ativo = true;
+
   await book.save();
 
   return book;

@@ -1,19 +1,22 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import AppError from "../utils/AppError.js";
 
 const register = async (data) => {
   const { nome, email, password, telefone, role } = data;
 
   if (!nome || !email || !password) {
-    throw new AppError("Nome, email e senha são obrigatórios", 400);
+    const error = new Error("Nome, email e senha são obrigatórios");
+    error.statusCode = 400;
+    throw error;
   }
 
   const userExists = await User.findOne({ email });
 
   if (userExists) {
-    throw new AppError("Já existe um usuário com esse email", 400);
+    const error = new Error("Já existe um usuário com esse email");
+    error.statusCode = 400;
+    throw error;
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
@@ -41,23 +44,31 @@ const login = async (data) => {
   const { email, password } = data;
 
   if (!email || !password) {
-    throw new AppError("Email e senha são obrigatórios", 400);
+    const error = new Error("Email e senha são obrigatórios");
+    error.statusCode = 400;
+    throw error;
   }
 
   const user = await User.findOne({ email }).select("+password");
 
   if (!user) {
-    throw new AppError("Email ou senha inválidos", 401);
+    const error = new Error("Email ou senha inválidos");
+    error.statusCode = 401;
+    throw error;
   }
 
   if (!user.ativo) {
-    throw new AppError("Usuário inativo. Entre em contato com a administração", 403);
+    const error = new Error("Usuário inativo. Entre em contato com a administração");
+    error.statusCode = 403;
+    throw error;
   }
 
   const passwordIsCorrect = await bcrypt.compare(password, user.password);
 
   if (!passwordIsCorrect) {
-    throw new AppError("Email ou senha inválidos", 401);
+    const error = new Error("Email ou senha inválidos");
+    error.statusCode = 401;
+    throw error;
   }
 
   const token = jwt.sign(

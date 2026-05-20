@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Loan from "../models/Loan.js";
-import AppError from "../utils/AppError.js";
 
 const getAllUsers = async () => {
   return User.find().sort({ createdAt: -1 });
@@ -11,7 +10,9 @@ const getUserById = async (id) => {
   const user = await User.findById(id);
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   return user;
@@ -29,7 +30,9 @@ const updateMe = async (userId, data) => {
     });
 
     if (emailExists) {
-      throw new AppError("Já existe outro usuário com esse email", 400);
+      const error = new Error("Já existe outro usuário com esse email");
+      error.statusCode = 400;
+      throw error;
     }
   }
 
@@ -39,7 +42,9 @@ const updateMe = async (userId, data) => {
   });
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   return user;
@@ -53,7 +58,9 @@ const updateUser = async (id, data) => {
     });
 
     if (emailExists) {
-      throw new AppError("Já existe outro usuário com esse email", 400);
+      const error = new Error("Já existe outro usuário com esse email");
+      error.statusCode = 400;
+      throw error;
     }
   }
 
@@ -67,7 +74,9 @@ const updateUser = async (id, data) => {
   });
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   return user;
@@ -77,11 +86,15 @@ const deactivateUser = async (id) => {
   const user = await User.findById(id);
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (!user.ativo) {
-    throw new AppError("Usuário já está desativado", 400);
+    const error = new Error("Usuário já está desativado");
+    error.statusCode = 400;
+    throw error;
   }
 
   const activeLoansCount = await Loan.countDocuments({
@@ -90,10 +103,15 @@ const deactivateUser = async (id) => {
   });
 
   if (activeLoansCount > 0) {
-    throw new AppError("Não é possível desativar usuário com empréstimo ativo", 400);
+    const error = new Error(
+      "Não é possível desativar usuário com empréstimo ativo"
+    );
+    error.statusCode = 400;
+    throw error;
   }
 
   user.ativo = false;
+
   await user.save();
 
   return user;
@@ -103,14 +121,19 @@ const activateUser = async (id) => {
   const user = await User.findById(id);
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (user.ativo) {
-    throw new AppError("Usuário já está ativo", 400);
+    const error = new Error("Usuário já está ativo");
+    error.statusCode = 400;
+    throw error;
   }
 
   user.ativo = true;
+
   await user.save();
 
   return user;

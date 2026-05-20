@@ -1,43 +1,55 @@
 import Loan from "../models/Loan.js";
 import User from "../models/User.js";
 import Book from "../models/Book.js";
-import AppError from "../utils/AppError.js";
-import calculateFine from "../utils/calculateFine.js";
 
 const createLoan = async (userId, data) => {
   const { bookId } = data;
   const daysToReturn = Number(data.diasParaDevolucao ?? 7);
 
   if (!bookId) {
-    throw new AppError("bookId é obrigatório", 400);
+    const error = new Error("bookId é obrigatório");
+    error.statusCode = 400;
+    throw error;
   }
 
   if (!daysToReturn || daysToReturn <= 0) {
-    throw new AppError("diasParaDevolucao precisa ser maior que zero", 400);
+    const error = new Error("diasParaDevolucao precisa ser maior que zero");
+    error.statusCode = 400;
+    throw error;
   }
 
   const user = await User.findById(userId);
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (!user.ativo) {
-    throw new AppError("Usuário inativo não pode pegar livros emprestados", 400);
+    const error = new Error("Usuário inativo não pode pegar livros emprestados");
+    error.statusCode = 400;
+    throw error;
   }
 
   const book = await Book.findById(bookId);
 
   if (!book) {
-    throw new AppError("Livro não encontrado", 404);
+    const error = new Error("Livro não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   if (!book.ativo) {
-    throw new AppError("Livro inativo não pode ser emprestado", 400);
+    const error = new Error("Livro inativo não pode ser emprestado");
+    error.statusCode = 400;
+    throw error;
   }
 
   if (book.quantidadeDisponivel <= 0) {
-    throw new AppError("Livro sem quantidade disponível", 400);
+    const error = new Error("Livro sem quantidade disponível");
+    error.statusCode = 400;
+    throw error;
   }
 
   const activeSameBookLoan = await Loan.findOne({
@@ -47,12 +59,17 @@ const createLoan = async (userId, data) => {
   });
 
   if (activeSameBookLoan) {
-    throw new AppError("Usuário já possui empréstimo ativo desse livro", 400);
+    const error = new Error("Usuário já possui empréstimo ativo desse livro");
+    error.statusCode = 400;
+    throw error;
   }
 
   const dataEmprestimo = new Date();
+
   const dataPrevistaDevolucao = new Date(dataEmprestimo);
-  dataPrevistaDevolucao.setDate(dataPrevistaDevolucao.getDate() + daysToReturn);
+  dataPrevistaDevolucao.setDate(
+    dataPrevistaDevolucao.getDate() + daysToReturn
+  );
 
   const loan = await Loan.create({
     userId,
@@ -87,14 +104,18 @@ const getLoanById = async (id, currentUser) => {
   const loan = await Loan.findById(id).populate("userId").populate("bookId");
 
   if (!loan) {
-    throw new AppError("Empréstimo não encontrado", 404);
+    const error = new Error("Empréstimo não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   const isOwner = loan.userId._id.toString() === currentUser._id.toString();
   const isAdmin = currentUser.role === "admin";
 
   if (!isOwner && !isAdmin) {
-    throw new AppError("Você não tem permissão para acessar esse empréstimo", 403);
+    const error = new Error("Você não tem permissão para acessar esse empréstimo");
+    error.statusCode = 403;
+    throw error;
   }
 
   return loan;
@@ -104,7 +125,9 @@ const getLoansByUser = async (userId) => {
   const user = await User.findById(userId);
 
   if (!user) {
-    throw new AppError("Usuário não encontrado", 404);
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   return Loan.find({ userId })
@@ -124,32 +147,53 @@ const returnLoan = async (loanId, currentUser) => {
   const loan = await Loan.findById(loanId);
 
   if (!loan) {
-    throw new AppError("Empréstimo não encontrado", 404);
+    const error = new Error("Empréstimo não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   const isOwner = loan.userId.toString() === currentUser._id.toString();
   const isAdmin = currentUser.role === "admin";
 
   if (!isOwner && !isAdmin) {
-    throw new AppError("Você não tem permissão para devolver esse empréstimo", 403);
+    const error = new Error("Você não tem permissão para devolver esse empréstimo");
+    error.statusCode = 403;
+    throw error;
   }
 
   if (loan.status === "devolvido") {
-    throw new AppError("Esse empréstimo já foi devolvido", 400);
+    const error = new Error("Esse empréstimo já foi devolvido");
+    error.statusCode = 400;
+    throw error;
   }
 
   const book = await Book.findById(loan.bookId);
 
   if (!book) {
-    throw new AppError("Livro não encontrado", 404);
+    const error = new Error("Livro não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   const dataDevolucao = new Date();
-  const { fine } = calculateFine(loan.dataPrevistaDevolucao, dataDevolucao);
+
+  let diasDeAtraso = 0;
+  let multa = 0;
+
+  if (dataDevolucao > loan.dataPrevistaDevolucao) {
+    const diferencaEmMilissegundos =
+      dataDevolucao.getTime() - loan.dataPrevistaDevolucao.getTime();
+
+    diasDeAtraso = Math.ceil(
+      diferencaEmMilissegundos / (1000 * 60 * 60 * 24)
+    );
+
+    multa = diasDeAtraso * 2;
+  }
 
   loan.dataDevolucao = dataDevolucao;
   loan.status = "devolvido";
-  loan.multa = fine;
+  loan.multa = multa;
 
   book.quantidadeDisponivel += 1;
 
@@ -177,14 +221,18 @@ const simulateFine = async (loanId, currentUser) => {
   const loan = await Loan.findById(loanId).populate("userId").populate("bookId");
 
   if (!loan) {
-    throw new AppError("Empréstimo não encontrado", 404);
+    const error = new Error("Empréstimo não encontrado");
+    error.statusCode = 404;
+    throw error;
   }
 
   const isOwner = loan.userId._id.toString() === currentUser._id.toString();
   const isAdmin = currentUser.role === "admin";
 
   if (!isOwner && !isAdmin) {
-    throw new AppError("Você não tem permissão para simular multa desse empréstimo", 403);
+    const error = new Error("Você não tem permissão para simular multa desse empréstimo");
+    error.statusCode = 403;
+    throw error;
   }
 
   if (loan.status === "devolvido") {
@@ -195,11 +243,25 @@ const simulateFine = async (loanId, currentUser) => {
     };
   }
 
-  const { daysLate, fine } = calculateFine(loan.dataPrevistaDevolucao, new Date());
+  const dataAtual = new Date();
+
+  let diasDeAtraso = 0;
+  let multa = 0;
+
+  if (dataAtual > loan.dataPrevistaDevolucao) {
+    const diferencaEmMilissegundos =
+      dataAtual.getTime() - loan.dataPrevistaDevolucao.getTime();
+
+    diasDeAtraso = Math.ceil(
+      diferencaEmMilissegundos / (1000 * 60 * 60 * 24)
+    );
+
+    multa = diasDeAtraso * 2;
+  }
 
   return {
-    diasDeAtraso: daysLate,
-    multa: fine,
+    diasDeAtraso,
+    multa,
   };
 };
 
